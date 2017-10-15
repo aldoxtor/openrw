@@ -61,12 +61,6 @@ TextureData::Handle createTexture(RW::BSTextureNative& texNative,
         !((texNative.rasterformat & RW::BSTextureNative::FORMAT_888) ==
           RW::BSTextureNative::FORMAT_888);
 
-    if (!(isPal8 || isFulc)) {
-        std::cerr << "Unsuported raster format " << std::dec
-                  << texNative.rasterformat << std::endl;
-        return getErrorTexture();
-    }
-
     GLuint textureName = 0;
 
     if (isPal8) {
@@ -108,27 +102,53 @@ TextureData::Handle createTexture(RW::BSTextureNative& texNative,
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texNative.width,
                      texNative.height, 0, format, type, coldata);
     } else {
+        std::cerr << "Unsuported raster format " << std::dec
+                  << texNative.rasterformat << std::endl;
         return getErrorTexture();
     }
 
-    GLenum texFilter = GL_LINEAR;
+    GLenum magFilter, minFilter;
     switch (texNative.filterflags & 0xFF) {
         default:
+        case RW::BSTextureNative::FILTER_MYSTERY_OPTION:
         case RW::BSTextureNative::FILTER_LINEAR:
-            texFilter = GL_LINEAR;
+            magFilter = GL_LINEAR;
+            minFilter = GL_LINEAR;
             break;
         case RW::BSTextureNative::FILTER_NEAREST:
-            texFilter = GL_NEAREST;
+            magFilter = GL_NEAREST;
+            minFilter = GL_NEAREST;
+            break;
+        case RW::BSTextureNative::FILTER_MIP_NEAREST:
+            magFilter = GL_NEAREST;
+            minFilter = GL_NEAREST_MIPMAP_NEAREST;
+            break;
+        case RW::BSTextureNative::FILTER_MIP_LINEAR:
+            magFilter = GL_NEAREST;
+            minFilter = GL_NEAREST_MIPMAP_LINEAR;
+            break;
+        case RW::BSTextureNative::FILTER_LINEAR_MIP_NEAREST:
+            magFilter = GL_LINEAR;
+            minFilter = GL_LINEAR_MIPMAP_NEAREST;
+            break;
+        case RW::BSTextureNative::FILTER_LINEAR_MIP_LINEAR:
+            magFilter = GL_LINEAR;
+            minFilter = GL_LINEAR_MIPMAP_LINEAR;
+            break;
+        case RW::BSTextureNative::FILTER_NONE:
+            // Don't know what it is
+            magFilter = GL_LINEAR;
+            minFilter = GL_LINEAR;
             break;
     }
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, texFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 
-    GLenum texwrap = GL_REPEAT;
+    GLenum texwrap;
     switch (texNative.wrapU) {
         default:
+        case RW::BSTextureNative::WRAP_NONE:
         case RW::BSTextureNative::WRAP_WRAP:
             texwrap = GL_REPEAT;
             break;
@@ -143,6 +163,7 @@ TextureData::Handle createTexture(RW::BSTextureNative& texNative,
 
     switch (texNative.wrapV) {
         default:
+        case RW::BSTextureNative::WRAP_NONE:
         case RW::BSTextureNative::WRAP_WRAP:
             texwrap = GL_REPEAT;
             break;
